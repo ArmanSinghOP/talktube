@@ -119,16 +119,8 @@ with col2:
                     st.session_state.messages = []  # reset chat
                     st.success("✅ Transcript loaded and cleaned! Start asking questions below.")
 
-    # ------------------------------
-    # Chat Interface (Minimal styling, default look)
-    # ------------------------------
-    # --- inside col2 (Chat UI part) ---
 
-# --- inside col2 (Chat UI part) ---
-
-# --- inside col2 (Chat UI part) ---
-
-    # ------------------------------
+# ------------------------------
 # Chat Interface (Full History)
 # ------------------------------
 
