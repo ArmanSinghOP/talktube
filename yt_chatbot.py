@@ -1,9 +1,3 @@
-import asyncio
-try:
-    asyncio.get_running_loop()
-except RuntimeError:
-    asyncio.set_event_loop(asyncio.new_event_loop())
-
 import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -127,6 +121,10 @@ with col2:
 
 # --- inside col2 (Chat UI part) ---
 
+    # ------------------------------
+# Chat Interface (Full History)
+# ------------------------------
+
     if "qa_chain" in st.session_state:
         st.subheader("💬 Chat with the Video")
 
@@ -140,9 +138,8 @@ with col2:
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.rerun()
 
-        # Show only last 5 messages, newest on top
-        recent_messages = st.session_state.messages[-5:] if len(st.session_state.messages) > 5 else st.session_state.messages
-        for msg in reversed(recent_messages):
+        # Show ALL messages (newest on bottom)
+        for msg in st.session_state.messages:
             if msg["role"] == "user":
                 st.markdown(
                     f"""
@@ -166,7 +163,7 @@ with col2:
                         border-radius: 10px;
                         margin-bottom: 8px;
                     ">
-                         🗣️🎬<b>TalkTube:</b> {msg['content']}
+                        🗣️🎬 <b>TalkTube:</b> {msg['content']}
                     </div>
                     """,
                     unsafe_allow_html=True
