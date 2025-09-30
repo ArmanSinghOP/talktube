@@ -108,7 +108,7 @@ This section describes the important functions and the processing flow implement
 
    - `build_qa_chain(retriever)` constructs a LangChain runnable pipeline:
      - `PromptTemplate` instructs the model to "Answer ONLY from the provided transcript context. If the context is insufficient, just say you don't know."
-     - `ChatGoogleGenerativeAI` with `model='gemini-1.5-pro'` and `temperature=0.3` is used for final answer generation.
+     - `ChatGoogleGenerativeAI` with `model='gemini-2.0-flash-lite'` and `temperature=0.3` is used for final answer generation.
      - `RunnableParallel` is used so the retriever's results are formatted (`format_docs`) and passed as the `context` input to the prompt.
      - `StrOutputParser` returns the final text answer.
 
