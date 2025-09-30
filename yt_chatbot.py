@@ -68,7 +68,7 @@ def build_qa_chain(retriever):
         input_variables=['context', 'question']
     )
 
-    model = ChatGoogleGenerativeAI(model='gemini-1.5-pro', temperature=0.3)
+    model = ChatGoogleGenerativeAI(model='gemini-2.0-flash-lite', temperature=0.3)
 
     def format_docs(retrieved_docs):
         return "\n\n".join(doc.page_content for doc in retrieved_docs)
