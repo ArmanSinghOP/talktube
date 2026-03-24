@@ -1,23 +1,139 @@
 # TalkTube — YouTube Video Q&A Assistant
 
-A lightweight Streamlit app that turns YouTube videos into an interactive Q&A experience. Paste a YouTube link, load the transcript, and ask natural-language questions — the assistant answers using only the transcript content.
-
-Live App - https://talktube-20.streamlit.app/
-
----
-
-## Features
-
-- Play YouTube video in the left column while chatting on the right.
-- Fetches captions/transcript using `youtube-transcript-api`.
-- Cleans and chunks long transcripts with `RecursiveCharacterTextSplitter`.
-- Embeds chunks with Google Generative AI embeddings and indexes with FAISS.
-- Uses `langchain_google_genai`'s `ChatGoogleGenerativeAI` to answer user questions, constrained to transcript context.
-- Simple, session-state backed chat UI (keeps full conversation history during the session).
+🔗 Live App: https://talktube-20.streamlit.app/  
+🔗 GitHub: https://github.com/ArmanSinghOP/talktube
 
 ---
 
-## Quick Start
+## 🚧 Problem
+
+Students spend hours watching long YouTube lectures but struggle to:
+- Quickly extract key insights
+- Revisit specific concepts
+- Ask questions about video content
+
+Existing solutions either:
+- Require manual note-taking
+- Provide generic summaries (not query-based)
+- Lack context-grounded answers
+
+**Goal:**  
+Build a system that allows users to *interact with video content like a conversation*, ensuring answers are strictly grounded in the video itself.
+
+---
+
+## 💡 Approach
+
+I built a **Retrieval-Augmented Generation (RAG)** system over YouTube transcripts.
+
+### Pipeline:
+1. Extract transcript using `youtube-transcript-api`
+2. Clean and normalize text
+3. Chunk text using `RecursiveCharacterTextSplitter`
+4. Generate embeddings using Google Generative AI
+5. Store vectors in **FAISS**
+6. Retrieve top-k relevant chunks
+7. Pass context to LLM for grounded response generation
+
+### Key Principle:
+> The model is strictly constrained to answer ONLY from retrieved transcript context
+
+---
+
+## 🔁 Iterations
+
+### v1 — Basic Q&A
+- Directly passed full transcript to LLM
+- ❌ Slow and token inefficient
+- ❌ Hallucinations
+
+### v2 — Chunking + Embeddings
+- Introduced chunking + FAISS
+- ✅ Faster retrieval
+- ❌ Still occasional irrelevant answers
+
+### v3 — RAG with Prompt Constraints (Current)
+- Added strict prompt:
+  - “Answer ONLY from context”
+  - “Say I don’t know if not found”
+- Tuned:
+  - chunk size = 1000
+  - overlap = 200
+  - top-k retrieval = 4
+- ✅ High accuracy
+- ✅ Minimal hallucination
+
+---
+
+## 🧠 Key Design Choices
+
+### 1. RAG over Fine-tuning
+- Keeps system lightweight
+- Works on ANY video without retraining
+
+### 2. FAISS for Vector Search
+- Fast in-memory similarity search
+- Scalable for future persistence
+
+### 3. Google Generative AI
+- Cost-efficient and fast inference
+- Good performance for contextual QA
+
+### 4. Chunking Strategy
+- Balanced context vs performance
+- Overlap ensures continuity
+
+### 5. Streamlit UI
+- Rapid prototyping
+- Clean chat + video interface
+
+---
+
+## ⏱️ Time Commitment
+
+- Duration: ~3–4 weeks
+- Daily effort: 2–4 hours/day
+
+Breakdown:
+- Week 1: Core pipeline (transcripts + LLM)
+- Week 2: RAG + FAISS integration
+- Week 3: UI + prompt engineering + testing
+- Week 4: Optimization + deployment
+
+---
+
+## ⚙️ Features
+
+- Ask questions about any YouTube video
+- Context-aware answers grounded in transcript
+- Interactive chat interface with history
+- Video + chat side-by-side UI
+- Fast semantic retrieval using FAISS
+
+---
+
+## 🛠️ Tech Stack
+
+- Python
+- LangChain
+- Google Generative AI
+- FAISS
+- Streamlit
+- YouTube Transcript API
+
+---
+
+## 🚀 Future Improvements
+
+- Multi-video knowledge base
+- Persistent vector database
+- Support for non-captioned videos (via ASR)
+- Streaming responses
+- Better ranking (re-ranking models)
+
+---
+
+## 📂 Project Setup
 
 1. Clone the repo:
 
@@ -73,120 +189,8 @@ UI layout: left column plays the video, right column contains the transcript loa
 
 ---
 
-## Implementation Details & Flow
-
-This section describes the important functions and the processing flow implemented in `app.py` (or whichever file you use):
-
-1. **Async loop fix**
-
-   - At the top of the app an `asyncio` event-loop guard runs to ensure Streamlit’s environment can create or reuse a running loop without crashing.
-
-2. **extract_video_id(youtube_url)**
-
-   - Uses a regex to extract the 11-character YouTube video id from standard links (`v=`) or `youtu.be` short links.
-
-3. **fetch_transcript(video_id)**
-
-   - Uses `YouTubeTranscriptApi().fetch(video_id)` to get captions.
-   - Joins caption segments into a single text blob and calls `clean_text`.
-   - Handles `TranscriptsDisabled` and `NoTranscriptFound` exceptions and surfaces friendly Streamlit error messages.
-
-4. **clean_text(text)**
-
-   - Replaces newlines with spaces, fixes common camelCase runs by inserting a period and space between lower->Upper transitions, collapses whitespace.
-
-5. **Chunking**
-
-   - `create_chunks(text, chunk_size=1000, chunk_overlap=200)` uses `RecursiveCharacterTextSplitter` to produce document chunks from the cleaned transcript. Adjust `chunk_size` and `chunk_overlap` if answers lack context or you want finer-grained retrieval.
-
-6. **Embedding & Indexing**
-
-   - `create_vector_store(chunks)` creates `GoogleGenerativeAIEmbeddings(model="models/embedding-001")` and builds a FAISS index with `FAISS.from_documents(chunks, embeddings)`.
-   - The app currently builds the index in-memory each time you press **Load Video Transcript**; for production or faster loads you may persist FAISS indices to disk.
-
-7. **QA Chain**
-
-   - `build_qa_chain(retriever)` constructs a LangChain runnable pipeline:
-     - `PromptTemplate` instructs the model to "Answer ONLY from the provided transcript context. If the context is insufficient, just say you don't know."
-     - `ChatGoogleGenerativeAI` with `model='gemini-2.0-flash-lite'` and `temperature=0.3` is used for final answer generation.
-     - `RunnableParallel` is used so the retriever's results are formatted (`format_docs`) and passed as the `context` input to the prompt.
-     - `StrOutputParser` returns the final text answer.
-
-8. **Chat Interaction**
-
-   - When the user asks a question, the app calls `qa_chain.invoke(user_input)` and appends the assistant reply to `st.session_state.messages`.
-   - The app renders all messages in the session using simple HTML/CSS styling blocks.
-
 ---
 
-## Configuration & Tips
+## 📬 Contact
 
-- **Chunk size / overlap**: If answers are missing detail or the assistant incorrectly says "I don't know", increase `chunk_size` or the number of retrieved documents `k` (`search_kwargs={"k": 4}`) when creating the retriever.
-- **Persist FAISS**: For repeated queries against the same video, save/load FAISS indexes to disk to avoid recomputing embeddings on every load.
-- **Alternative embeddings/models**: If you prefer to use OpenAI embeddings or other providers, swap `GoogleGenerativeAIEmbeddings` and `ChatGoogleGenerativeAI` with the provider of your choice and update the prompt/model accordingly.
-- **Streamlit secrets**: For deployment, use Streamlit Cloud secrets or the hosting platform’s env vars to store API keys securely — do NOT commit `.env` to source control.
-
----
-
-## Troubleshooting & Common Issues
-
-- **Transcript not found / disabled**: Many videos lack auto-captions or have captions disabled; `YouTubeTranscriptApi` will raise `NoTranscriptFound` or `TranscriptsDisabled`. Use another video or add subtitles to the video.
-- **Invalid YouTube URL**: The extractor expects standard YouTube URLs or `youtu.be` short links. If you get `None` for `video_id`, verify the URL.
-- **FAISS install failure**: On Windows or some Linux distributions, `faiss-cpu` may need extra build steps. Search FAISS installation instructions for your platform.
-- **High latency / cost**: Generating embeddings and model calls incur API calls — expect some latency and potential API costs depending on your Google account and model usage.
-
----
-
-## File Structure (suggested)
-
-```
-TalkTube/
-├─ yt_chatbot.py         # main Streamlit app (your provided code)
-├─ README.txt            # this file
-├─ requirements.txt      # pip dependencies
-├─ .env                  # local environment variables (NOT committed)
-├─ .gitignore
-└─ assets/               # optional: images, icons
-```
-
----
-
-## Example `requirements.txt` (suggested)
-
-```
-streamlit
-youtube-transcript-api
-langchain
-langchain-google-genai
-langchain-community
-faiss-cpu
-python-dotenv
-```
-
-Pin versions if you need reproducibility.
-
----
-
-## Next Steps / Improvements
-
-- Add support for videos in other languages.
-- Persist and cache FAISS indexes to speed repeated loads.
-- Add support for uploading a local transcript file (SRT/TXT) when YouTube captions are unavailable.
-- Add streaming responses or typing indicators for better UX.
-- Add authentication and rate-limiting for multi-user deployments.
-- Add unit tests for core helper functions (ID extraction, cleaning, chunking).
-
----
-
-## License & Credits
-
-MIT License — feel free to fork and extend.  
-Credits: built with `streamlit`, `youtube-transcript-api`, `langchain` and Google Generative AI.
-
----
-
-## Contact
-
-If you want help integrating features (FAISS persistence, deployment, or replacing Google embeddings), open an issue or contact me via the GitHub repo.
-
----
+For any queries, feel free to reach out via GitHub.
